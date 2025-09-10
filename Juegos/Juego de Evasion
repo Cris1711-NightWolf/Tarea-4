@@ -1,0 +1,193 @@
+import pygame
+import random
+import sys
+import os
+
+# Inicialización
+pygame.init()
+ANCHO, ALTO = 800, 600
+screen = pygame.display.set_mode((ANCHO, ALTO))
+pygame.display.set_caption("🚀 Juego de Evasión 🚀")
+clock = pygame.time.Clock()
+
+# Colores
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
+
+# Fuentes gamer retro
+font_gamer = pygame.font.Font(
+    pygame.font.match_font('arcadeclassic, couriernew, terminal, fixedsys'), 36)
+font_big = pygame.font.Font(
+    pygame.font.match_font('arcadeclassic, couriernew, terminal, fixedsys'), 72)
+
+# Carpeta de imágenes
+IMG_FOLDER = "imagenes"
+
+def load_image(path, size=None):
+    img = pygame.image.load(path).convert_alpha()
+    if size:
+        img = pygame.transform.scale(img, size)
+    return img
+
+# Cargar imágenes
+background = load_image(os.path.join(IMG_FOLDER, "cielo.png"), (ANCHO, ALTO))
+menu_background = load_image(os.path.join(IMG_FOLDER, "menu.png"), (ANCHO, ALTO))
+player_img = load_image(os.path.join(IMG_FOLDER, "avion.png"), (120, 120))
+meteor_img = load_image(os.path.join(IMG_FOLDER, "meteorito.png"), (110, 110))
+missile_img = load_image(os.path.join(IMG_FOLDER, "misil.png"), (80, 150))
+heart_img = load_image(os.path.join(IMG_FOLDER, "corazon.png"), (30, 30))
+
+# Jugador
+player_size = 120
+player_x = ANCHO // 2 - player_size // 2
+player_y = ALTO - 150
+player_speed = 6
+lives = 3
+
+# Enemigos
+obstacles = []
+obstacle_speed = 3
+spawn_rate = 30
+
+# Puntaje
+score = 0
+
+# Ajuste de hitbox reducido
+def get_hitbox(x, y, img, shrink=0.6):
+    rect = img.get_rect(topleft=(x, y))
+    rect.width = int(rect.width * shrink)
+    rect.height = int(rect.height * shrink)
+    rect.center = (x + img.get_width() // 2, y + img.get_height() // 2)
+    return rect
+
+# Funciones de texto
+def draw_text(text, font, color, x, y, center=True):
+    surface = font.render(text, True, color)
+    rect = surface.get_rect()
+    if center:
+        rect.center = (x, y)
+    else:
+        rect.topleft = (x, y)
+    screen.blit(surface, rect)
+
+# Menú de inicio
+def menu():
+    global obstacle_speed, spawn_rate, lives, score
+    while True:
+        screen.blit(menu_background, (0, 0))
+        draw_text("🚀 JUEGO DE EVASION 🚀", font_big, WHITE, ANCHO//2, 150)
+        draw_text("Selecciona la dificultad", font_gamer, WHITE, ANCHO//2, 250)
+        draw_text("1. Facil", font_gamer, WHITE, ANCHO//2, 320)
+        draw_text("2. Medio", font_gamer, WHITE, ANCHO//2, 370)
+        draw_text("3. Dificil", font_gamer, WHITE, ANCHO//2, 420)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    obstacle_speed, spawn_rate, lives = 3, 45, 5
+                    score = 0
+                    return
+                elif event.key == pygame.K_2:
+                    obstacle_speed, spawn_rate, lives = 5, 30, 3
+                    score = 0
+                    return
+                elif event.key == pygame.K_3:
+                    obstacle_speed, spawn_rate, lives = 7, 20, 2
+                    score = 0
+                    return
+
+# Pantalla de Game Over
+def game_over():
+    global lives
+    while True:
+        screen.fill((0, 0, 0))
+        draw_text("💀 GAME OVER 💀", font_big, RED, ANCHO//2, 200)
+        draw_text(f"Puntaje final: {score}", font_gamer, WHITE, ANCHO//2, 300)
+        draw_text("¿Continuar? (S/N)", font_gamer, WHITE, ANCHO//2, 400)
+        pygame.display.update()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_s:
+                    lives = 3
+                    return
+                elif event.key == pygame.K_n:
+                    pygame.quit()
+                    sys.exit()
+
+# Juego principal
+def main():
+    global player_x, player_y, obstacles, score, lives
+    running = True
+    player_x, player_y = ANCHO//2 - player_size//2, ALTO - 150
+    obstacles = []
+    score = 0
+
+    while running:
+        screen.blit(background, (0, 0))
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+        # Movimiento
+        keys = pygame.key.get_pressed()
+        if (keys[pygame.K_LEFT] or keys[pygame.K_a]) and player_x > 0:
+            player_x -= player_speed
+        if (keys[pygame.K_RIGHT] or keys[pygame.K_d]) and player_x < ANCHO - player_size:
+            player_x += player_speed
+        if (keys[pygame.K_UP] or keys[pygame.K_w]) and player_y > 0:
+            player_y -= player_speed
+        if (keys[pygame.K_DOWN] or keys[pygame.K_s]) and player_y < ALTO - player_size:
+            player_y += player_speed
+
+        # Generar obstáculos
+        if random.randint(1, spawn_rate) == 1:
+            if random.choice([True, False]):
+                obstacles.append([random.randint(0, ANCHO-110), 0, meteor_img])
+            else:
+                obstacles.append([random.randint(0, ANCHO-80), 0, missile_img])
+
+        # Dibujar jugador
+        screen.blit(player_img, (player_x, player_y))
+
+        # Dibujar vidas
+        for i in range(lives):
+            screen.blit(heart_img, (ANCHO - 40 - i*35, 10))
+
+        # Mover y dibujar obstáculos
+        for obs in obstacles[:]:
+            obs[1] += obstacle_speed
+            screen.blit(obs[2], (obs[0], obs[1]))
+
+            if obs[1] > ALTO:
+                obstacles.remove(obs)
+                score += 10
+            else:
+                if get_hitbox(player_x, player_y, player_img).colliderect(
+                   get_hitbox(obs[0], obs[1], obs[2], shrink=0.5)):
+                    obstacles.remove(obs)
+                    lives -= 1
+                    if lives <= 0:
+                        running = False
+
+        # Mostrar puntaje
+        draw_text(f"Puntos: {score}", font_gamer, WHITE, 10, 10, center=False)
+
+        pygame.display.update()
+        clock.tick(60)
+
+    game_over()
+
+# Bucle principal
+while True:
+    menu()
+    main()
